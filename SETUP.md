@@ -79,8 +79,23 @@ pip3 install -r requirements.txt
 
 Since the `.env` file was ignored during the GitHub upload, you need to create it manually on the machine running the bot.
 
-1. Create a new file named `.env` in the main folder.
-2. Open the `.env.example` file (if provided) or copy the following structure into your new `.env` file:
+You can create and edit the `.env` file directly from the terminal.
+
+**For Linux / macOS:**
+```bash
+# Create and open the file in the nano editor
+nano .env
+```
+*(Once in `nano`, paste the configuration below, then press `Ctrl+O`, `Enter`, and `Ctrl+X` to save and exit).*
+
+**For Windows:**
+```powershell
+# Create and open the file in Notepad
+notepad .env
+```
+*(Notepad will ask if you want to create a new file. Click Yes, paste the configuration, save it, and close the window).*
+
+Copy the following structure into your new `.env` file:
 
 ```env
 # Telegram Bot Configuration
@@ -93,10 +108,10 @@ MAX_CONCURRENT_TASKS=1
 CHECKER_THREADS=20
 ```
 
-3. **Update the values**:
-   - `BOT_TOKEN`: Get this from [@BotFather](https://t.me/BotFather) on Telegram.
-   - `OWNER_ID`: Your personal Telegram User ID (Get this from a bot like @userinfobot).
-   - `ADMIN_IDS`: (Optional) Comma-separated list of other admin user IDs.
+**Update the values**:
+- `BOT_TOKEN`: Get this from [@BotFather](https://t.me/BotFather) on Telegram.
+- `OWNER_ID`: Your personal Telegram User ID (Get this from a bot like @userinfobot).
+- `ADMIN_IDS`: (Optional) Comma-separated list of other admin user IDs.
 
 ---
 
