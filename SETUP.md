@@ -1,20 +1,37 @@
 # Seedr Bot Setup Guide
 
+<<<<<<< HEAD
 This guide will walk you through the complete process of setting up, configuring, and running the Seedr Combo Checker Bot from scratch on either Windows or Linux/VPS environments.
 
 ## Prerequisites
 Before you begin, ensure you have the following installed on your system:
 - **Python 3.12+** (Download from [python.org](https://www.python.org/downloads/))
+=======
+This guide will walk you through the complete process of setting up and running the Seedr Combo Checker Bot from scratch on either Windows or Linux.
+
+## Prerequisites
+Before you begin, ensure you have the following installed on your system:
+- **Python 3.8+** (Download from [python.org](https://www.python.org/downloads/))
+>>>>>>> a8f487076ff7a6e878ad18d8534f363d5b43193a
 - **Git** (Download from [git-scm.com](https://git-scm.com/downloads))
 
 ---
 
+<<<<<<< HEAD
 ## Step 1: Ignoring and Configuring `.env`
 
 If you are uploading this project to a public or private GitHub repository, make sure you **DO NOT upload your `.env` file** to prevent exposing sensitive tokens.
 
 1. Ensure there is a `.gitignore` file in your main directory.
 2. The `.gitignore` file should contain:
+=======
+## Step 1: Uploading to GitHub & Ignoring `.env`
+
+If you are uploading this project to your own GitHub repository, make sure you **DO NOT upload your `.env` file**. The `.env` file contains sensitive information like your bot token and admin IDs.
+
+1. Ensure there is a `.gitignore` file in your main directory.
+2. The `.gitignore` file should contain at least these lines:
+>>>>>>> a8f487076ff7a6e878ad18d8534f363d5b43193a
    ```text
    .env
    __pycache__/
@@ -24,22 +41,42 @@ If you are uploading this project to a public or private GitHub repository, make
    logs/
    *.txt
    ```
+<<<<<<< HEAD
+=======
+3. Commit and push your files to GitHub. Your `.env` will be ignored automatically if it's in the `.gitignore`.
+>>>>>>> a8f487076ff7a6e878ad18d8534f363d5b43193a
 
 ---
 
 ## Step 2: Cloning the Repository
 
+<<<<<<< HEAD
 Open your terminal or command prompt and clone the repository:
+=======
+On the machine where you want to run the bot (your PC, a VPS, etc.), open your terminal or command prompt.
+
+Clone your repository using Git:
+>>>>>>> a8f487076ff7a6e878ad18d8534f363d5b43193a
 ```bash
 git clone https://github.com/yourusername/your-repo-name.git
 cd your-repo-name
 ```
+<<<<<<< HEAD
 
 ---
 
 ## Step 3: Setting Up the Virtual Environment
 
 Create and activate a virtual environment to manage dependencies separately:
+=======
+*(Replace the URL with your actual GitHub repository URL).*
+
+---
+
+## Step 3: Setting Up the Virtual Environment (Optional but Recommended)
+
+It's best practice to use a virtual environment so the bot's dependencies don't interfere with your system's Python packages.
+>>>>>>> a8f487076ff7a6e878ad18d8534f363d5b43193a
 
 **For Windows:**
 ```powershell
@@ -57,6 +94,7 @@ source venv/bin/activate
 
 ## Step 4: Installing Requirements
 
+<<<<<<< HEAD
 Install the bot dependencies:
 ```bash
 pip install -r requirements.txt
@@ -107,12 +145,69 @@ STATUS_UPDATE_INTERVAL=10
 - `MEMBER_WORKERS` / `ADMIN_WORKERS` / `OWNER_WORKERS`: Concurrency settings defining the worker count for check threads based on roles.
 - `MEMBER_TIMEOUT`: Cooldown constraint (in seconds) preventing members from launching subsequent check tasks until the timeout expires.
 - `STATUS_UPDATE_INTERVAL`: Checking progress message refresh throttle frequency (in seconds).
+=======
+Once you are inside the directory (and your virtual environment is activated), install the required Python packages.
+
+**For Windows:**
+```powershell
+pip install -r requirements.txt
+```
+
+**For Linux / macOS:**
+```bash
+pip3 install -r requirements.txt
+```
+
+---
+
+## Step 5: Configuring the `.env` File
+
+Since the `.env` file was ignored during the GitHub upload, you need to create it manually on the machine running the bot.
+
+You can create and edit the `.env` file directly from the terminal.
+
+**For Linux / macOS:**
+```bash
+# Create and open the file in the nano editor
+nano .env
+```
+*(Once in `nano`, paste the configuration below, then press `Ctrl+O`, `Enter`, and `Ctrl+X` to save and exit).*
+
+**For Windows:**
+```powershell
+# Create and open the file in Notepad
+notepad .env
+```
+*(Notepad will ask if you want to create a new file. Click Yes, paste the configuration, save it, and close the window).*
+
+Copy the following structure into your new `.env` file:
+
+```env
+# Telegram Bot Configuration
+BOT_TOKEN=your_bot_token_here
+OWNER_ID=your_telegram_id_here
+ADMIN_IDS=another_admin_id,yet_another_id
+
+# Rate Limits & Settings
+MAX_CONCURRENT_TASKS=1
+CHECKER_THREADS=20
+```
+
+**Update the values**:
+- `BOT_TOKEN`: Get this from [@BotFather](https://t.me/BotFather) on Telegram.
+- `OWNER_ID`: Your personal Telegram User ID (Get this from a bot like @userinfobot).
+- `ADMIN_IDS`: (Optional) Comma-separated list of other admin user IDs.
+>>>>>>> a8f487076ff7a6e878ad18d8534f363d5b43193a
 
 ---
 
 ## Step 6: Running the Bot
 
+<<<<<<< HEAD
 Start the bot application:
+=======
+Now that everything is set up, you can start the bot.
+>>>>>>> a8f487076ff7a6e878ad18d8534f363d5b43193a
 
 **For Windows:**
 ```powershell
@@ -124,6 +219,7 @@ python main.py
 python3 main.py
 ```
 
+<<<<<<< HEAD
 You should see logs in the terminal indicating that the bot has started successfully, loaded the database, and passed its health checks. Go to Telegram and interact with your bot.
 
 ---
@@ -134,12 +230,29 @@ To keep the bot running after closing your SSH terminal session, use `tmux`:
 
 ```bash
 # Create a new session named 'seedr_bot'
+=======
+You should see logs in the terminal indicating that the bot has started successfully, loaded the database, and passed its health checks. You can now go to Telegram and send `/start` to your bot.
+
+---
+
+## Additional Commands for Linux/VPS Users (Background Running)
+
+If you are running this on a Linux server and want the bot to keep running after you close the terminal, you can use `tmux` or `screen`.
+
+Using `tmux`:
+```bash
+# Create a new session
+>>>>>>> a8f487076ff7a6e878ad18d8534f363d5b43193a
 tmux new -s seedr_bot
 
 # Run the bot
 python3 main.py
 
 # Detach from session: Press Ctrl+B, then press D
+<<<<<<< HEAD
 # To re-attach to the session later:
+=======
+# To re-attach later:
+>>>>>>> a8f487076ff7a6e878ad18d8534f363d5b43193a
 tmux attach -t seedr_bot
 ```
