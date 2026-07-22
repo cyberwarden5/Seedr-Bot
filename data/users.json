@@ -5,14 +5,15 @@
     "first_name": "\u2014\u035f\u035e\u035e \ud835\ude3c\ud835\ude41\ud835\ude4f\ud835\ude3c\ud835\ude3d",
     "last_name": "\ud835\ude46\ud835\ude3c\ud835\ude3d\ud835\ude44\ud835\ude4d \ud83c\udde7\ud83c\udde9",
     "registered_at": "2026-07-18T12:38:01.402978",
-    "last_active": "2026-07-18T20:17:54.363305",
-    "total_checks": 1458,
+    "last_active": "2026-07-22T18:57:13.758475",
+    "total_checks": 1464,
     "total_hits": 97,
-    "total_dead": 1361,
+    "total_dead": 1367,
     "total_invalid": 0,
     "current_task_id": null,
     "role": "owner",
     "status": "active",
-    "permissions": "Full access"
+    "permissions": "Full access",
+    "last_task_completed_at": "2026-07-22T18:57:13.366439"
   }
 }

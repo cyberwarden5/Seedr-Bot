@@ -514,7 +514,8 @@ async def handle_combo_file(message: Message, state: FSMContext):
             chat_title=chat_title
         )
         
-        # Update user stats in DB        user = await db.get_user(user_id)
+        # Update user stats in DB
+        user = await db.get_user(user_id)
         if user:
             await db.update_user_stats(user_id, {
                 "total_checks": user.get("total_checks", 0) + results["processed"],
