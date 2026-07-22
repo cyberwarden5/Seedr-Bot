@@ -134,7 +134,9 @@ class SeedrChecker:
         self, 
         combos: list, 
         progress_callback=None, 
-        cancel_event=None
+        cancel_event=None,
+        concurrency: Optional[int] = None,
+        on_premium_hit=None
     ) -> Dict[str, Any]:
         """
         Check multiple combos concurrently with progress updates.
@@ -158,7 +160,8 @@ class SeedrChecker:
             await queue.put(combo)
             
         lock = asyncio.Lock()
-        concurrency = config.max_concurrent_tasks if config.max_concurrent_tasks > 0 else 5
+        if concurrency is None:
+            concurrency = config.max_concurrent_tasks if config.max_concurrent_tasks > 0 else 5
         
         async def worker():
             while not queue.empty():
@@ -196,6 +199,11 @@ class SeedrChecker:
                         results["hits"].append(combo_data)
                         if account_info.is_premium:
                             results["premium"].append(combo_data)
+                            if on_premium_hit:
+                                try:
+                                    await on_premium_hit(combo, account_info)
+                                except Exception as e:
+                                    logger.error("premium_hit_callback_error", error=str(e))
                         else:
                             results["free"].append(combo_data)
                     elif error and ("incorrect" in error.lower() or "invalid" in error.lower()):

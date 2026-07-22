@@ -90,7 +90,7 @@ async def main():
         log_channel_status = "Working ✅" if config.log_channel_id else "Not Configured ⚠️"
         log(f"Bot is running. Name: {bot_name}, Owner: {owner_status}, Channel: {log_channel_status}")
         
-        # Send PM notification to Owner
+        # Send PM notification to Owner and Log Channel
         if config.owner_id:
             try:
                 from datetime import datetime
@@ -113,6 +113,16 @@ async def main():
                     text=startup_msg,
                     parse_mode="Markdown"
                 )
+                
+                if config.log_channel_id:
+                    try:
+                        await bot.send_message(
+                            chat_id=config.log_channel_id,
+                            text=startup_msg,
+                            parse_mode="Markdown"
+                        )
+                    except Exception as channel_err:
+                        logger.error("startup_channel_notification_failed", error=str(channel_err))
             except Exception as e:
                 logger.error("startup_notification_failed", error=str(e))
                 

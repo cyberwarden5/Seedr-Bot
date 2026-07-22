@@ -34,6 +34,17 @@ class Config:
     checker_timeout: int = field(default_factory=lambda: int(os.getenv("CHECKER_TIMEOUT", "30")))
     rate_limit_delay: float = field(default_factory=lambda: float(os.getenv("RATE_LIMIT_DELAY", "0.5")))
     
+    # Role-based workers for multithreading
+    member_workers: int = field(default_factory=lambda: int(os.getenv("MEMBER_WORKERS", "3")))
+    admin_workers: int = field(default_factory=lambda: int(os.getenv("ADMIN_WORKERS", "10")))
+    owner_workers: int = field(default_factory=lambda: int(os.getenv("OWNER_WORKERS", "20")))
+    
+    # Cooldown for member role (in seconds)
+    member_timeout: int = field(default_factory=lambda: int(os.getenv("MEMBER_TIMEOUT", "60")))
+    
+    # Status update interval (in seconds)
+    status_update_interval: int = field(default_factory=lambda: int(os.getenv("STATUS_UPDATE_INTERVAL", "10")))
+    
     # Paths
     data_dir: str = "data"
     logs_dir: str = "logs"

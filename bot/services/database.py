@@ -345,14 +345,17 @@ class JsonDatabase:
             "cancelled": True
         })
         
-        # Clear user's current task
+        # Clear user's current task if no other running tasks exist
         task = await self.get_task(task_id)
         if task:
             user = await self.get_user(task["user_id"])
             if user:
-                user["current_task_id"] = None
+                user["last_task_completed_at"] = datetime.utcnow().isoformat()
+                other_active = [t for t in self.tasks.values() if t.get("user_id") == task["user_id"] and t.get("status") == "running" and t.get("task_id") != task_id]
+                if not other_active:
+                    user["current_task_id"] = None
                 await self._save_users()
-    
+     
     async def complete_task(self, task_id: str):
         """Mark task as completed."""
         await self.update_task(task_id, {
@@ -360,23 +363,27 @@ class JsonDatabase:
             "completed_at": datetime.utcnow().isoformat()
         })
         
-        # Clear user's current task
+        # Clear user's current task if no other running tasks exist
         task = await self.get_task(task_id)
         if task:
             user = await self.get_user(task["user_id"])
             if user:
-                user["current_task_id"] = None
+                user["last_task_completed_at"] = datetime.utcnow().isoformat()
+                other_active = [t for t in self.tasks.values() if t.get("user_id") == task["user_id"] and t.get("status") == "running" and t.get("task_id") != task_id]
+                if not other_active:
+                    user["current_task_id"] = None
                 await self._save_users()
-    
+     
     async def get_active_tasks(self) -> List[Dict[str, Any]]:
         """Get all active tasks."""
         return [task for task in self.tasks.values() if task["status"] == "running"]
-    
+     
     async def get_user_active_task(self, user_id: int) -> Optional[Dict[str, Any]]:
         """Get user's active task."""
-        user = await self.get_user(user_id)
-        if user and user["current_task_id"]:
-            return await self.get_task(user["current_task_id"])
+        # Find any running task for this user dynamically from tasks
+        for task in self.tasks.values():
+            if task.get("user_id") == user_id and task.get("status") == "running":
+                return task
         return None
     
     async def get_task_history(self, user_id: Optional[int] = None) -> List[Dict[str, Any]]:

